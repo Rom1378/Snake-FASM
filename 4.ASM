@@ -38,6 +38,7 @@ section '.text' code readable executable
 ;START SCREEN CLEAR
 
         ;clear map
+  clear_map:
         xor rdx, rdx
         xor rcx, rcx
 
@@ -48,10 +49,12 @@ section '.text' code readable executable
 
         clearing_screen:
 
+        call [SetConsoleCursorPosition]
+
         mov bx, [WIDTH]
             loop_width:
 
-                invoke WriteConsoleA, [consoleOutHdl], 'aa', 2,0,0
+                invoke WriteConsoleA, [consoleOutHdl], 'a', 1,0,0
                 dec bx
                 cmp bx,0
                 je loop_width
