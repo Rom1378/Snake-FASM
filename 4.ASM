@@ -28,6 +28,8 @@ section '.text' code readable executable
         shl rdx, 16                                        ;move cursor to snake head
         mov dx, [headX]
         call [SetConsoleCursorPosition]
+        mov rdx, '$'
+        call write_char
 
 
 
@@ -38,34 +40,33 @@ section '.text' code readable executable
 ;START SCREEN CLEAR
 
         ;clear map
-  clear_map:
-        xor rdx, rdx
-        xor rcx, rcx
-
-        mov rcx, [consoleOutHdl]   ; Handle                                             ;using call instead of invoke just because I wanted to
-        mov dx, [HEIGHT]
-
-        shl dx, 16
-
-        clearing_screen:
-
+clear_map:
+        xor rbx, rbx          ; Use rbx as line counter
+        
+clear_line:
+        ; Set cursor position to (0, line number)
+        mov rcx, [consoleOutHdl]
+        mov rdx, rbx          ; Y coordinate
+        shl rdx, 16           ; Shift to high word
+        mov dx, 0             ; X coordinate = 0
         call [SetConsoleCursorPosition]
+        
+        ; Write WIDTH characters
+        mov cx, [WIDTH]
+        
+loop_width:
+        push rcx
+        invoke WriteConsoleA, [consoleOutHdl], message, 1, 0, 0
+        pop  rcx
+        dec cx
+        jnz loop_width        ; Continue until cx = 0
+        
+        ; Move to next line
+        inc rbx
+        cmp bx, [HEIGHT]
+        jl clear_line         ; Continue until all lines are processed
+  drawsnake:
 
-        mov bx, [WIDTH]
-            loop_width:
-
-                invoke WriteConsoleA, [consoleOutHdl], 'a', 1,0,0
-                dec bx
-                cmp bx,0
-                je loop_width
-
-        shr dx,16
-        dec dx
-        shl dx,16
-
-        call [SetConsoleCursorPosition]
-        cmp edx,0
-        jne clearing_screen
 
 ;END SCREEN CLEAR
 
