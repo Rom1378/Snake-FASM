@@ -30,7 +30,8 @@ section '.text' code readable executable
         call [SetConsoleCursorPosition]
 
 
-        invoke Sleep, 20                                   ;give cpu some rest to let the Jiqì breath
+
+        invoke Sleep, 20                                   ;give cpu some rest to let the jiqì breath
 
 
 
@@ -42,21 +43,23 @@ section '.text' code readable executable
 
         mov rcx, [consoleOutHdl]   ; Handle                                             ;using call instead of invoke just because I wanted to
         mov dx, [HEIGHT]
-        shl rdx, 16                ; RDX = 0x0000000000050000
-        call [SetConsoleCursorPosition]      ;set cursor to (0, HEIGHT)
 
-
+        shl dx, 16
 
         clearing_screen:
+
         mov bx, [WIDTH]
             loop_width:
 
-                invoke WriteConsoleA, [consoleOutHdl], '#a', 2,0,0
+                invoke WriteConsoleA, [consoleOutHdl], 'aa', 2,0,0
                 dec bx
                 cmp bx,0
                 je loop_width
 
+        shr dx,16
         dec dx
+        shl dx,16
+
         call [SetConsoleCursorPosition]
         cmp edx,0
         jne clearing_screen
@@ -88,20 +91,20 @@ section '.text' code readable executable
 
 ;UPDATED SNAKE DIR BASED ON INPUT
         MoveRight:
-              mov dl, 'R'
+
               inc [headX]
               mov [dir], 'R'
                 call write_char
               jmp   play
         MoveLeft:
                 dec [headX]
-                  mov dl, 'L'
+
                   mov [dir], 'L'
                 call write_char
                   jmp   play
         MoveUp:
                 dec [headY]
-                 mov dl, 'U'
+
                  mov [dir], 'U'
                 call write_char
         jmp   play
@@ -109,7 +112,7 @@ section '.text' code readable executable
                 inc [headY]
                mov dl, 'D'
                mov [dir], 'D'
-                call write_char
+
 ;END UPDATED SNAKE DIR BASED ON INPUT
                 jmp   play
 
