@@ -21,22 +21,80 @@ section '.text' code readable executable
         mov [consoleInHdl], rax
 
 
+mov dword [snake_length], 3  ; Start with 3 segments
+mov dword [snake_head], 2
+mov dword [snake_tail], 0
+
+; Initial snake position (middle of screen)
+mov word [snake_x], 30
+mov word [snake_y], 10
+mov word [snake_x+2], 29
+mov word [snake_y+2], 10
+mov word [snake_x+4], 28
+mov word [snake_y+4], 10
+
+mov byte [dir], 'R'  ; Start moving right
+
+
+
+
+
   play:
 
-        mov rcx, [consoleOutHdl]
-        mov dx, [headY]
-        shl rdx, 16                                        ;move cursor to snake head
-        mov dx, [headX]
-        call [SetConsoleCursorPosition]
-        mov rdx, '$'
-        call write_char
+
+;DRAW THE SNAKE
+
+        ;mov rcx, [consoleOutHdl]
+        ;mov ebx, [snake_head]
+  ; Current head X
+        ;mov dx, [snake_y + ebx*2]  ; Current head Y
+        ;shl rdx, 16                                        ;move cursor to snake head
+        ;mov dx, [snake_x + ebx*2]
+        ;call [SetConsoleCursorPosition]
+        ;mov rdx, '$'
+        ;call write_char
+
+mov ecx, [snake_length]  ; Load segment count
+mov esi, [snake_tail]    ; Start from tail
+.render_snake_loop:
+      ; Get position
+    movzx eax, word [snake_x + esi*2]
+    movzx ebx, word [snake_y + esi*2]
+    
+    ; Set cursor position (COORD: x=low word, y=high word)
+    mov edx, ebx
+    shl edx, 16
+    or edx, eax
+    
+    ; Draw segment
+    push rcx
+    push rsi
+    mov rcx, [consoleOutHdl]
+    call [SetConsoleCursorPosition]
+    mov dl, byte [snakeChar]
+    call write_char
+    pop rsi
+    pop rcx
+    
+    ; Move to next segment
+    inc esi
+    cmp esi, MAX_SNAKE_LENGTH
+    jb .no_wrap
+    xor esi, esi
+.no_wrap:
+    dec ecx
+    jnz .render_snake_loop
+
+
+
+
+
+
+
 
 
 
         invoke Sleep, 200                                   ;give cpu some rest to let the jiqì breath
-
-
-
 ;START SCREEN CLEAR
 
         ;clear map
@@ -120,26 +178,71 @@ loop_width:
 ;END UPDATED SNAKE DIR BASED ON INPUT
                 jmp   update_snake
 
+
+
 update_snake:
+
+; 1. Remove tail (move tail pointer forward)
+mov eax, [snake_tail]
+inc eax
+cmp eax, MAX_SNAKE_LENGTH
+jb .no_wrap_tail
+xor eax, eax  ; Wrap around
+.no_wrap_tail:
+mov [snake_tail], eax
+
+
+mov ebx, [snake_head]
+mov cx, [snake_x + ebx*2]  ; Current head X
+mov dx, [snake_y + ebx*2]  ; Current head Y
+
+
         cmp [dir], 'R'
         jne mvLeft
-        inc [headX]
+        inc cx
         jmp end_update_snake
 mvLeft:
         cmp [dir], 'L'
         jne mvDown
-        dec [headX]
+        dec cx
         jmp end_update_snake
 mvDown:
         cmp [dir], 'D'
         jne mvUp
-        inc [headY]
+        inc dx
         jmp end_update_snake
 mvUp:
-        dec [headY]
+        dec dx
         jmp end_update_snake
 
 end_update_snake:
+
+; 3. Store new head position
+inc ebx
+cmp ebx, MAX_SNAKE_LENGTH
+jb .no_wrap_head
+xor ebx, eax  ; Wrap around
+.no_wrap_head:
+mov [snake_head], ebx
+mov [snake_x + ebx*2], cx
+mov [snake_y + ebx*2], dx
+
+
+
+onEat:
+inc ebx
+cmp ebx, MAX_SNAKE_LENGTH
+jb .no_wrap_head
+xor ebx, eax  ; Wrap around
+.no_wrap_head:
+mov [snake_head], ebx
+mov [snake_x + ebx*2], cx
+mov [snake_y + ebx*2], dx
+
+
+
+
+
 
 
 
@@ -149,11 +252,8 @@ end_update_snake:
         jmp Exit
 
 write_char:  ;put the char in rdx
-    ; Save character to stack
     mov [charRoom], dl
-
     invoke WriteConsoleA,    [consoleOutHdl],  charRoom   ,1, 0, 0
-
     ret
 
 
@@ -170,28 +270,17 @@ section '.data' data readable writeable
        cursorPos db 10    ; X = 10 (16-bit)
                  db 5     ; Y = 5  (16-bit)
 
-        headX dw 3
-        headY dw 7
 
 
+  snakeChar db 'X',0
 
 
-
-  _caption db 'Win32 assembly program',0
-  snakeChar db '@',0
-
-  message db 'Hello World!',0
-  messageLen =$-message
-
-  clear_screen_sequence db '\x1b[2J',0
-  clear_screen_sequence_len = $-clear_screen_sequence
   consoleTitle db "OOOOA",0
 
   cTLen = $-consoleTitle
 
   consoleOutHdl dq 0
   consoleInHdl dq 0
-
 
 
         escKeyCode dd 0x1B
