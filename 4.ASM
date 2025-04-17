@@ -33,7 +33,7 @@ section '.text' code readable executable
 
 
 
-        invoke Sleep, 20                                   ;give cpu some rest to let the jiqì breath
+        invoke Sleep, 200                                   ;give cpu some rest to let the jiqì breath
 
 
 
@@ -56,7 +56,7 @@ clear_line:
         
 loop_width:
         push rcx
-        invoke WriteConsoleA, [consoleOutHdl], message, 1, 0, 0
+        invoke WriteConsoleA, [consoleOutHdl], ' ', 1, 0, 0   ;just learned invoke can overwrite registers...
         pop  rcx
         dec cx
         jnz loop_width        ; Continue until cx = 0
@@ -65,7 +65,7 @@ loop_width:
         inc rbx
         cmp bx, [HEIGHT]
         jl clear_line         ; Continue until all lines are processed
-  drawsnake:
+
 
 
 ;END SCREEN CLEAR
@@ -74,52 +74,72 @@ loop_width:
 
         invoke GetAsyncKeyState, VK_LEFT
         cmp eax, 0
-        jne MoveLeft
+        jne DirLeft
 
         invoke GetAsyncKeyState, VK_RIGHT
         test eax, eax
-        jnz MoveRight
+        jnz DirRight
 
         invoke GetAsyncKeyState, VK_UP
         test eax, eax
-        jnz MoveUp
+        jnz DirUp
 
         invoke GetAsyncKeyState, VK_DOWN
         test eax, eax
-        jnz MoveDown
+        jnz DirDown
 
-        jmp play
+        jmp update_snake
 
 ;END CHECKING USER INPUT
 
 
 ;UPDATED SNAKE DIR BASED ON INPUT
-        MoveRight:
+        DirRight:
 
-              inc [headX]
+              ;inc [headX]
               mov [dir], 'R'
-                call write_char
-              jmp   play
-        MoveLeft:
-                dec [headX]
+              ;call write_char
+
+
+
+              jmp   update_snake
+        DirLeft:
+               ; dec [headX]
 
                   mov [dir], 'L'
-                call write_char
-                  jmp   play
-        MoveUp:
-                dec [headY]
+               ; call write_char
+                  jmp   update_snake
+        DirUp:
 
                  mov [dir], 'U'
-                call write_char
-        jmp   play
-        MoveDown:
-                inc [headY]
-               mov dl, 'D'
+                ;call write_char
+        jmp   update_snake
+        DirDown:
                mov [dir], 'D'
 
 ;END UPDATED SNAKE DIR BASED ON INPUT
-                jmp   play
+                jmp   update_snake
 
+update_snake:
+        cmp [dir], 'R'
+        jne mvLeft
+        inc [headX]
+        jmp end_update_snake
+mvLeft:
+        cmp [dir], 'L'
+        jne mvDown
+        dec [headX]
+        jmp end_update_snake
+mvDown:
+        cmp [dir], 'D'
+        jne mvUp
+        inc [headY]
+        jmp end_update_snake
+mvUp:
+        dec [headY]
+        jmp end_update_snake
+
+end_update_snake:
 
 
 
@@ -142,7 +162,7 @@ Exit:
 
 
 section '.const' data readable
-        WIDTH    dw 20
+        WIDTH    dw 60
         HEIGHT   dw 20
 
 
@@ -152,6 +172,8 @@ section '.data' data readable writeable
 
         headX dw 3
         headY dw 7
+
+
 
 
 
@@ -178,6 +200,12 @@ section '.data' data readable writeable
         dir db 'R'
 
 
+  MAX_SNAKE_LENGTH = 100
+    snake_x: times MAX_SNAKE_LENGTH dw 0  ; X coordinates
+    snake_y: times MAX_SNAKE_LENGTH dw 0  ; Y coordinates
+    snake_head dd 0  ; Index of head (0-99)
+    snake_tail dd 0  ; Index of tail (0-99)
+    snake_length dd 1
 
   STD_OUTP_HNDL  dd -11
   STD_INP_HNDL dd -10
