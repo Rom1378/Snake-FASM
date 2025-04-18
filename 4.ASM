@@ -1,7 +1,11 @@
 
 
-format PE64 Console 5.0
+format PE64 Console 6.0
+
 entry start
+
+
+   MAX_SNAKE_LENGTH equ 100
 
 include 'win64a.inc'
 
@@ -32,12 +36,24 @@ section '.text' code readable executable
     mov word [snake_y+4], 10
     mov byte [dir], 'R'  ; Start moving right
 
-
 play:
 
-        call generate_fruit
+    call generate_fruit
 
+;check fruit collision
+    mov esi, [snake_head]
+    mov ax,  [snake_x + esi*2]
+    mov bx,  [snake_y + esi*2]
+    cmp ax, [fruit_x]
+    jne .not_eating
+    cmp bx, [fruit_y]
+    jne .not_eating
+;eating
+    mov byte [fruit_active], 0
+    inc dword [snake_length]
+    jmp skip_tail_update
 
+.not_eating:
     mov ecx, [snake_length]  ; Load segment count
     mov esi, [snake_tail]    ; Start from tail
 
@@ -63,15 +79,15 @@ play:
     
     ; Move to next segment
     inc esi
-    mov rax ,MAX_SNAKE_LENGTH
-    cmp esi, eax
+
+
+    cmp esi, MAX_SNAKE_LENGTH
     jb .no_wrap
     xor esi, esi
 
 .no_wrap:
     dec ecx
     jnz .render_snake_loop
-
 
 ;draw fruit
     cmp byte [fruit_active], 1
@@ -89,15 +105,10 @@ play:
     call write_char
     
 .no_fruit:
-
-
         invoke Sleep, 24                                   ;give cpu some rest to let the jiqì breath
-;START SCREEN CLEAR
 
-        ;clear map
 clear_map:
-        xor rbx, rbx          ; Use rbx as line counter
-        
+        xor rbx, rbx
 clear_line:
         ; Set cursor position to (0, line number)
         mov rcx, [consoleOutHdl]
@@ -123,10 +134,6 @@ loop_width:
 
 
 
-;END SCREEN CLEAR
-
-;CHECKING USER INPUT
-
         invoke GetAsyncKeyState, VK_LEFT
         cmp eax, 0
         jne DirLeft
@@ -145,10 +152,7 @@ loop_width:
 
         jmp update_snake
 
-;END CHECKING USER INPUT
 
-
-;UPDATED SNAKE DIR BASED ON INPUT
         DirRight:
               mov [dir], 'R'
               jmp   update_snake
@@ -160,14 +164,9 @@ loop_width:
               jmp   update_snake
         DirDown:
               mov [dir], 'D'
-;END UPDATED SNAKE DIR BASED ON INPUT
               jmp   update_snake
 
-
-
 update_snake:
-
-; 1. Remove tail (move tail pointer forward)
     mov eax, [snake_tail]
     inc eax
 
@@ -178,6 +177,7 @@ update_snake:
 .no_wrap_tail:
     mov [snake_tail], eax
 
+skip_tail_update:
 
     mov ebx, [snake_head]
     mov cx, [snake_x + ebx*2]  ; Current head X
@@ -204,7 +204,7 @@ mvUp:
 
 end_update_snake:
 
-; 3. Store new head position
+
     inc ebx
     mov rax,  MAX_SNAKE_LENGTH
     cmp rbx, rax
@@ -214,29 +214,10 @@ end_update_snake:
     mov [snake_head], ebx
     mov [snake_x + ebx*2], cx
     mov [snake_y + ebx*2], dx
-
-
-   ; inc ebx
-    ;
-    ;mov rax,  MAX_SNAKE_LENGTH
-    ;cmp rbx, rax
-    ;jb .no_wrap_headd
-    ;xor ebx, ebx  ; Wrap around
-;.no_wrap_headd:
-   ; mov [snake_head], ebx
-    ;mov [snake_x + ebx*2], cx
-    ;mov [snake_y + ebx*2], dx
-    ;mov eax, [snake_length]
-    ;inc eax
-    ;mov [snake_length], eax
-
-
-
-
-        invoke GetAsyncKeyState, [escKeyCode]   ;Exit if presse ESC
-        cmp rax, 0
-        jz play
-        jmp Exit
+    invoke GetAsyncKeyState, [escKeyCode]   ;Exit if presse ESC
+    cmp rax, 0
+    jz play
+    jmp Exit
 
 write_char:  ;put the char in rdx
     mov [charRoom], dl
@@ -246,26 +227,24 @@ write_char:  ;put the char in rdx
 generate_fruit:
     cmp byte [fruit_active], 1
     je .done
-    
-    ; Get random X position
+
     invoke GetTickCount
     xor edx, edx
-    movzx ecx, word [WIDTH]  ; Use movzx to zero-extend to ecx
-    dec ecx                  ; Don't place on right border
+    movzx ecx, word [WIDTH]
+    dec ecx
     div ecx
-    inc edx                  ; Avoid 0 position
+    inc edx
     mov [fruit_x], dx
     
-    ; Get random Y position
+
     invoke GetTickCount
     xor edx, edx
-    movzx ecx, word [HEIGHT] ; Use movzx to zero-extend to ecx
-    dec ecx                  ; Don't place on bottom border
+    movzx ecx, word [HEIGHT]
+    dec ecx
     div ecx
-    inc edx                  ; Avoid 0 position
+    inc edx
     mov [fruit_y], dx
 
-    ; Check if position is on snake
     mov ecx, [snake_length]
     mov esi, [snake_tail]
     
@@ -275,7 +254,7 @@ generate_fruit:
     cmp ax, [fruit_x]
     jne .next_segment
     cmp bx, [fruit_y]
-    je generate_fruit  ; Try again if on snake
+    je generate_fruit
     
 .next_segment:
     inc esi
@@ -295,61 +274,47 @@ generate_fruit:
 Exit:
         invoke        ExitProcess, 0
 
-
-
-       ; WIDTH    equ 60    ; Use equ instead of dw
-       ; HEIGHT   equ 20    ; Use equ instead of dw
-
 section '.data' data readable writeable
-       cursorPos db 10    ; X = 10 (16-bit)
+    cursorPos db 10    ; X = 10 (16-bit)
                  db 5     ; Y = 5  (16-bit)
 
-  WIDTH           dw 60
-HEIGHT          dw 20
-MAX_SNAKE_LENGTH dw 1200
+
+    snakeChar db 'X',0
+    consoleTitle db "FASM Snake",0
+    cTLen = $-consoleTitle
+
+    consoleOutHdl dq 0
+    consoleInHdl dq 0
+
+    escKeyCode dd 0x1B
+
+    WIDTH dw 60
+    HEIGHT          dw 20
 
 
-  snakeChar db 'X',0
-
-
-  consoleTitle db "OOOOA",0
-
-  cTLen = $-consoleTitle
-
-  consoleOutHdl dq 0
-  consoleInHdl dq 0
-
-
-        escKeyCode dd 0x1B
 
         ;snake direction, 'R' 'L' 'U' 'D'
-        dir db 'R'
-
-
-
+    dir db 'R'
     snake_x: times MAX_SNAKE_LENGTH dw 0  ; X coordinates
     snake_y: times MAX_SNAKE_LENGTH dw 0  ; Y coordinates
     snake_head dd 0  ; Index of head (0-99)
     snake_tail dd 0  ; Index of tail (0-99)
     snake_length dd 1
 
-        fruit_x dw 0
-fruit_y dw 0
-fruit_char db 'O',0
-fruit_active db 0
-STD_OUTP_HNDL  dd -11
-  STD_INP_HNDL dd -10
+    fruit_x dw 0
+    fruit_y dw 0
+    fruit_char db 'O',0
+    fruit_active db 0
+    STD_OUTP_HNDL  dd -11
+    STD_INP_HNDL dd -10
 
 section '.bss' readable writeable ; statically-allocated variables that are not explicitly initialized to any value
- 
-  readBuf  db ?
-  charRoom db ?
+    charRoom db ?
 
 
 section '.idata' import data readable
  
-  library msvcrt,'MSVCRT.DLL',\
-          kernel,'KERNEL32.DLL',\
+  library kernel,'KERNEL32.DLL',\
           user, 'User32.DLL'
   import user,\
     GetAsyncKeyState, 'GetAsyncKeyState'
@@ -358,16 +323,7 @@ section '.idata' import data readable
     SetConsoleTitleA, 'SetConsoleTitleA',\
     GetStdHandle, 'GetStdHandle',\
     WriteConsoleA, 'WriteConsoleA',\
-    ReadConsoleA, 'ReadConsoleA',\
     SetConsoleCursorPosition, 'SetConsoleCursorPosition',\
     Sleep, 'Sleep',\
-    FillConsoleOutputCharacterA, 'FillConsoleOutputCharacterA',\
     GetTickCount, 'GetTickCount',\
     ExitProcess, 'ExitProcess'
-
-    import msvcrt,\
-    puts,'puts',\
-    scanf,'scanf',\
-    printf,'printf',\
-    exit,'exit'
-
