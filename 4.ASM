@@ -8,54 +8,39 @@ include 'win64a.inc'
 
 section '.text' code readable executable
 
-  start:
+    start:
 
-        invoke       SetConsoleTitleA,       consoleTitle
-        test eax, eax ;compare eax with 0 exit if eax == 0
-        jz Exit
+    invoke       SetConsoleTitleA,       consoleTitle
+    test eax, eax ;compare eax with 0 exit if eax == 0
+    jz Exit
+    mov ecx, [STD_OUTP_HNDL]
+    call [GetStdHandle]
+    mov [consoleOutHdl], rax                      ; getting console handles
+    invoke GetStdHandle, [STD_INP_HNDL]
+    mov [consoleInHdl], rax
 
-        mov ecx, [STD_OUTP_HNDL]
-        call [GetStdHandle]
-        mov [consoleOutHdl], rax                      ; getting console handles
-        invoke GetStdHandle, [STD_INP_HNDL]
-        mov [consoleInHdl], rax
-
-
-mov dword [snake_length], 3  ; Start with 3 segments
-mov dword [snake_head], 2
-mov dword [snake_tail], 0
+    mov dword [snake_length], 3  ; Start with 3 segments
+    mov dword [snake_head], 2
+    mov dword [snake_tail], 0
 
 ; Initial snake position (middle of screen)
-mov word [snake_x], 30
-mov word [snake_y], 10
-mov word [snake_x+2], 29
-mov word [snake_y+2], 10
-mov word [snake_x+4], 28
-mov word [snake_y+4], 10
-
-mov byte [dir], 'R'  ; Start moving right
-
+    mov word [snake_x], 30
+    mov word [snake_y], 10
+    mov word [snake_x+2], 29
+    mov word [snake_y+2], 10
+    mov word [snake_x+4], 28
+    mov word [snake_y+4], 10
+    mov byte [dir], 'R'  ; Start moving right
 
 
+play:
+
+        call generate_fruit
 
 
-  play:
+    mov ecx, [snake_length]  ; Load segment count
+    mov esi, [snake_tail]    ; Start from tail
 
-
-;DRAW THE SNAKE
-
-        ;mov rcx, [consoleOutHdl]
-        ;mov ebx, [snake_head]
-  ; Current head X
-        ;mov dx, [snake_y + ebx*2]  ; Current head Y
-        ;shl rdx, 16                                        ;move cursor to snake head
-        ;mov dx, [snake_x + ebx*2]
-        ;call [SetConsoleCursorPosition]
-        ;mov rdx, '$'
-        ;call write_char
-
-mov ecx, [snake_length]  ; Load segment count
-mov esi, [snake_tail]    ; Start from tail
 .render_snake_loop:
       ; Get position
     movzx eax, word [snake_x + esi*2]
@@ -78,23 +63,35 @@ mov esi, [snake_tail]    ; Start from tail
     
     ; Move to next segment
     inc esi
-    cmp esi, MAX_SNAKE_LENGTH
+    mov rax ,MAX_SNAKE_LENGTH
+    cmp esi, eax
     jb .no_wrap
     xor esi, esi
+
 .no_wrap:
     dec ecx
     jnz .render_snake_loop
 
 
+;draw fruit
+    cmp byte [fruit_active], 1
+    jne .no_fruit
+    
+    movzx eax, word [fruit_x]
+    movzx ebx, word [fruit_y]
+    mov edx, ebx
+    shl edx, 16
+    or edx, eax
+    mov rcx, [consoleOutHdl]
+    call [SetConsoleCursorPosition]
+    
+    mov dl, byte [fruit_char]
+    call write_char
+    
+.no_fruit:
 
 
-
-
-
-
-
-
-        invoke Sleep, 200                                   ;give cpu some rest to let the jiqì breath
+        invoke Sleep, 24                                   ;give cpu some rest to let the jiqì breath
 ;START SCREEN CLEAR
 
         ;clear map
@@ -153,48 +150,38 @@ loop_width:
 
 ;UPDATED SNAKE DIR BASED ON INPUT
         DirRight:
-
-              ;inc [headX]
               mov [dir], 'R'
-              ;call write_char
-
-
-
               jmp   update_snake
         DirLeft:
-               ; dec [headX]
-
-                  mov [dir], 'L'
-               ; call write_char
-                  jmp   update_snake
+              mov [dir], 'L'
+              jmp   update_snake
         DirUp:
-
-                 mov [dir], 'U'
-                ;call write_char
-        jmp   update_snake
+              mov [dir], 'U'
+              jmp   update_snake
         DirDown:
-               mov [dir], 'D'
-
+              mov [dir], 'D'
 ;END UPDATED SNAKE DIR BASED ON INPUT
-                jmp   update_snake
+              jmp   update_snake
 
 
 
 update_snake:
 
 ; 1. Remove tail (move tail pointer forward)
-mov eax, [snake_tail]
-inc eax
-cmp eax, MAX_SNAKE_LENGTH
-jb .no_wrap_tail
-xor eax, eax  ; Wrap around
+    mov eax, [snake_tail]
+    inc eax
+
+    mov rbx, MAX_SNAKE_LENGTH
+    cmp rax, rbx
+    jb .no_wrap_tail
+    xor eax, eax  ; Wrap around
 .no_wrap_tail:
-mov [snake_tail], eax
+    mov [snake_tail], eax
 
 
-mov ebx, [snake_head]
-mov cx, [snake_x + ebx*2]  ; Current head X
-mov dx, [snake_y + ebx*2]  ; Current head Y
+    mov ebx, [snake_head]
+    mov cx, [snake_x + ebx*2]  ; Current head X
+    mov dx, [snake_y + ebx*2]  ; Current head Y
 
 
         cmp [dir], 'R'
@@ -218,30 +205,30 @@ mvUp:
 end_update_snake:
 
 ; 3. Store new head position
-inc ebx
-cmp ebx, MAX_SNAKE_LENGTH
-jb .no_wrap_head
-xor ebx, eax  ; Wrap around
+    inc ebx
+    mov rax,  MAX_SNAKE_LENGTH
+    cmp rbx, rax
+    jb .no_wrap_head
+    xor ebx, ebx  ; Wrap around
 .no_wrap_head:
-mov [snake_head], ebx
-mov [snake_x + ebx*2], cx
-mov [snake_y + ebx*2], dx
+    mov [snake_head], ebx
+    mov [snake_x + ebx*2], cx
+    mov [snake_y + ebx*2], dx
 
 
-
-onEat:
-inc ebx
-cmp ebx, MAX_SNAKE_LENGTH
-jb .no_wrap_head
-xor ebx, eax  ; Wrap around
-.no_wrap_head:
-mov [snake_head], ebx
-mov [snake_x + ebx*2], cx
-mov [snake_y + ebx*2], dx
-
-
-
-
+   ; inc ebx
+    ;
+    ;mov rax,  MAX_SNAKE_LENGTH
+    ;cmp rbx, rax
+    ;jb .no_wrap_headd
+    ;xor ebx, ebx  ; Wrap around
+;.no_wrap_headd:
+   ; mov [snake_head], ebx
+    ;mov [snake_x + ebx*2], cx
+    ;mov [snake_y + ebx*2], dx
+    ;mov eax, [snake_length]
+    ;inc eax
+    ;mov [snake_length], eax
 
 
 
@@ -256,20 +243,70 @@ write_char:  ;put the char in rdx
     invoke WriteConsoleA,    [consoleOutHdl],  charRoom   ,1, 0, 0
     ret
 
+generate_fruit:
+    cmp byte [fruit_active], 1
+    je .done
+    
+    ; Get random X position
+    invoke GetTickCount
+    xor edx, edx
+    movzx ecx, word [WIDTH]  ; Use movzx to zero-extend to ecx
+    dec ecx                  ; Don't place on right border
+    div ecx
+    inc edx                  ; Avoid 0 position
+    mov [fruit_x], dx
+    
+    ; Get random Y position
+    invoke GetTickCount
+    xor edx, edx
+    movzx ecx, word [HEIGHT] ; Use movzx to zero-extend to ecx
+    dec ecx                  ; Don't place on bottom border
+    div ecx
+    inc edx                  ; Avoid 0 position
+    mov [fruit_y], dx
+
+    ; Check if position is on snake
+    mov ecx, [snake_length]
+    mov esi, [snake_tail]
+    
+.check_collision_loop:
+    movzx eax, word [snake_x + esi*2]
+    movzx ebx, word [snake_y + esi*2]
+    cmp ax, [fruit_x]
+    jne .next_segment
+    cmp bx, [fruit_y]
+    je generate_fruit  ; Try again if on snake
+    
+.next_segment:
+    inc esi
+    cmp esi, MAX_SNAKE_LENGTH
+    jb .no_wrap_check
+    xor esi, esi
+    
+.no_wrap_check:
+    dec ecx
+    jnz .check_collision_loop
+
+    mov byte [fruit_active], 1
+    
+.done:
+    ret
 
 Exit:
         invoke        ExitProcess, 0
 
 
-section '.const' data readable
-        WIDTH    dw 60
-        HEIGHT   dw 20
 
+       ; WIDTH    equ 60    ; Use equ instead of dw
+       ; HEIGHT   equ 20    ; Use equ instead of dw
 
 section '.data' data readable writeable
        cursorPos db 10    ; X = 10 (16-bit)
                  db 5     ; Y = 5  (16-bit)
 
+  WIDTH           dw 60
+HEIGHT          dw 20
+MAX_SNAKE_LENGTH dw 1200
 
 
   snakeChar db 'X',0
@@ -289,14 +326,18 @@ section '.data' data readable writeable
         dir db 'R'
 
 
-  MAX_SNAKE_LENGTH = 100
+
     snake_x: times MAX_SNAKE_LENGTH dw 0  ; X coordinates
     snake_y: times MAX_SNAKE_LENGTH dw 0  ; Y coordinates
     snake_head dd 0  ; Index of head (0-99)
     snake_tail dd 0  ; Index of tail (0-99)
     snake_length dd 1
 
-  STD_OUTP_HNDL  dd -11
+        fruit_x dw 0
+fruit_y dw 0
+fruit_char db 'O',0
+fruit_active db 0
+STD_OUTP_HNDL  dd -11
   STD_INP_HNDL dd -10
 
 section '.bss' readable writeable ; statically-allocated variables that are not explicitly initialized to any value
@@ -321,6 +362,7 @@ section '.idata' import data readable
     SetConsoleCursorPosition, 'SetConsoleCursorPosition',\
     Sleep, 'Sleep',\
     FillConsoleOutputCharacterA, 'FillConsoleOutputCharacterA',\
+    GetTickCount, 'GetTickCount',\
     ExitProcess, 'ExitProcess'
 
     import msvcrt,\
